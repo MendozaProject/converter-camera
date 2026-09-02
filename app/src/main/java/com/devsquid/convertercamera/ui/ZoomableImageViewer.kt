@@ -49,6 +49,7 @@ import kotlin.math.roundToInt
 fun ZoomableImageViewer(
     bitmap: Bitmap,
     modifier: Modifier = Modifier,
+    showOverlay: Boolean = true,
     overlays: List<OverlayText> = emptyList(),
     maxScale: Float = 5f,
     onPriceTapped: (OverlayText) -> Unit = {},
@@ -124,14 +125,15 @@ fun ZoomableImageViewer(
                 }
             )
         }) {
+
             Box(
                 modifier = Modifier.fillMaxSize().graphicsLayer {
-                        scaleX = scale
-                        scaleY = scale
-                        translationX = -offset.x * scale
-                        translationY = -offset.y * scale
-                        transformOrigin = TransformOrigin.Center
-                    }
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = -offset.x * scale
+                    translationY = -offset.y * scale
+                    transformOrigin = TransformOrigin.Center
+                }
             ) {
                 Image(
                     bitmap = bitmap.asImageBitmap(),
@@ -139,24 +141,25 @@ fun ZoomableImageViewer(
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Fit
                 )
+                if (showOverlay && overlays.isNotEmpty()) {
+                    overlays.forEach { overlay ->
+                        if (!overlay.hidden) {
+                            val left = letterboxX + overlay.rectInBitmapCoords.left * fitScale
+                            val top = letterboxY + overlay.rectInBitmapCoords.top * fitScale
+                            val widthPx = overlay.rectInBitmapCoords.width() * fitScale
+                            val heightPx = overlay.rectInBitmapCoords.height() * fitScale
 
-                overlays.forEach { overlay ->
-                    if (!overlay.hidden) {
-                        val left = letterboxX + overlay.rectInBitmapCoords.left * fitScale
-                        val top = letterboxY + overlay.rectInBitmapCoords.top * fitScale
-                        val widthPx = overlay.rectInBitmapCoords.width() * fitScale
-                        val heightPx = overlay.rectInBitmapCoords.height() * fitScale
-
-                        if (widthPx > 0 && heightPx > 0) {
-                            OverlayTextBox(
-                                data = overlay,
-                                left = left,
-                                top = top,
-                                widthPx = widthPx,
-                                heightPx = heightPx,
-                                onPriceTapped = onPriceTapped,
-                                onPriceLongTapped = onPriceLongTapped,
-                            )
+                            if (widthPx > 0 && heightPx > 0) {
+                                OverlayTextBox(
+                                    data = overlay,
+                                    left = left,
+                                    top = top,
+                                    widthPx = widthPx,
+                                    heightPx = heightPx,
+                                    onPriceTapped = onPriceTapped,
+                                    onPriceLongTapped = onPriceLongTapped,
+                                )
+                            }
                         }
                     }
                 }

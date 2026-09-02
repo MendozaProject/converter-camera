@@ -5,10 +5,15 @@ import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
 import com.devsquid.convertercamera.database.SessionRepository
+import com.devsquid.convertercamera.ui.formatDecimal
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.Text
 import com.google.mlkit.vision.text.TextRecognizer
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.math.RoundingMode
+import java.text.NumberFormat
+import java.util.Currency
+import java.util.Locale
 import java.util.UUID
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
@@ -17,6 +22,11 @@ class TextScanner(
     private val recognizer: TextRecognizer,
     private val sessionRepository: SessionRepository
 ) {
+    // Regex to find numbers that may have a decimal part (exactly 2 digits after . or ,)
+    // It looks for a sequence of digits, optionally followed by (. or ,) and exactly 2 digits.
+    // Non-price related periods/commas are ignored by not matching the overall pattern.
+    private val priceRegex = Regex("(\\d+([.,]\\d{2})?)")
+
     @OptIn(ExperimentalGetImage::class)
     suspend fun recognizePrices(imageProxy: ImageProxy): List<ScannedTextData> {
         imageProxy.use {
@@ -45,26 +55,20 @@ class TextScanner(
             block.lines.forEach { line ->
                 line.elements.forEach { element ->
                     if (element.confidence > 0.6f) {
-                        val decimalDelimiter = sessionRepository.getDecimalDelimiter()
-                        // Keep digits and the specified decimal delimiter
-                        val regex = Regex("[^\\d${Regex.escape(decimalDelimiter.toString())}]")
-                        val text = element.text.replace(regex, "").trim()
-                        if (text.isNotEmpty()) {
-                            (text.split(" ").filter { it.isNotEmpty() && it != "0" })
-                                .forEach { numberText ->
-                                    val normalized = text.replace(decimalDelimiter, '.')
-                                    normalized.toDoubleOrNull()?.let {
-                                        result.add(
-                                            ScannedTextData(
-                                                id = UUID.randomUUID().toString(),
-                                                rect = RectF(line.boundingBox),
-                                                originalValue = it,
-                                                originalText = numberText,
-                                                replacementText = getConvertedText(it)
-                                            )
-                                        )
-                                    }
-                                }
+                        priceRegex.findAll(element.text).forEach { match ->
+                            val numberText = match.value
+                            val normalized = numberText.replace(',', '.')
+                            normalized.toDoubleOrNull()?.let {
+                                result.add(
+                                    ScannedTextData(
+                                        id = UUID.randomUUID().toString(),
+                                        rect = RectF(line.boundingBox),
+                                        originalValue = it,
+                                        originalText = numberText,
+                                        replacementText = getConvertedText(it)
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -81,9 +85,19 @@ class TextScanner(
         // Normalize to use '.' as decimal separator for parsing
 
         val convertedAmount = sessionRepository.convertCurrency(amount)
-        val valueText = if (convertedAmount <= 0.0) "nul" else "%.2f".format(convertedAmount)
+        val data = sessionRepository.getToCurrencyData()
 
-        return "${sessionRepository.getToCurrencySymbol()}${valueText}"
+        return if (data != null && convertedAmount > 0)
+            formatCurrency(convertedAmount, data.isoCode) else "nul"
+    }
+
+    fun formatCurrency(amount: Double, currencyCode: String, locale: Locale = Locale.getDefault()): String {
+        val currency = Currency.getInstance(currencyCode)
+        val format = NumberFormat.getCurrencyInstance(locale)
+        format.currency = currency
+        format.minimumFractionDigits = currency.defaultFractionDigits
+        format.maximumFractionDigits = currency.defaultFractionDigits
+        return format.format(amount)
     }
 
     data class ScannedTextData(

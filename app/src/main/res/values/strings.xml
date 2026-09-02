@@ -3,4 +3,5 @@
     <string name="enable_camera_dialog_message">Enable camera access in Settings to continue.</string>
     <string name="dialog_camera_access_required_message">Camera access is needed to scan numbers.</string>
     <string name="dialog_camera_access_required_title">Camera Required</string>
+    <string name="tooltip_swap_currencies_icon">Swap currencies</string>
 </resources>

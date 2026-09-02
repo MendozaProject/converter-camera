@@ -23,7 +23,6 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,8 +31,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.devsquid.convertercamera.ui.CurrencyListItemData
 import com.devsquid.convertercamera.ui.MODE_SET_CONVERT_CURRENCY
 import com.devsquid.convertercamera.ui.MODE_SET_ORIGINAL_CURRENCY
@@ -42,8 +41,8 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun CurrencySelectorScreen(viewModel: CurrencySelectorViewModel = koinViewModel(), onBack: () -> Unit) {
-    val currenciesState by viewModel.currenciesState.collectAsState()
-    val filterQuery by viewModel.filterQuery.collectAsState()
+    val currenciesState by viewModel.currenciesState.collectAsStateWithLifecycle()
+    val filterQuery by viewModel.filterQuery.collectAsStateWithLifecycle()
 
     CurrencySelector(
         currencies = currenciesState,

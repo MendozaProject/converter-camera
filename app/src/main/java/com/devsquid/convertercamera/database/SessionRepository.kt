@@ -87,6 +87,14 @@ class SessionRepository(
         return currencyDataState.value?.convertCurrency(amount) ?: -1.0
     }
 
+    fun getToCurrencyData(): CurrencyRate? {
+        return currencyDataState.value?.toCurrencyData
+    }
+
+    fun getFromCurrencyData(): CurrencyRate? {
+        return currencyDataState.value?.fromCurrencyData
+    }
+
     fun getToCurrencySymbol(): String {
         return currencyDataState.value?.toCurrencyData?.symbol ?: ""
     }
