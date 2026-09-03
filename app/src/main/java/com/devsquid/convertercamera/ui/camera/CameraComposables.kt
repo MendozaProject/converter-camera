@@ -74,7 +74,8 @@ import org.koin.androidx.compose.koinViewModel
 fun CameraScreen(
     cameraViewModel: CameraViewModel = koinViewModel(),
     onNavigateToSelectorRoute: (Int) -> Unit,
-    onBack: () -> Unit) {
+    onBack: () -> Unit,
+    onClose: () -> Unit) {
 
     val (status, requestPermission) = rememberPermissionState(Manifest.permission.CAMERA)
 
@@ -97,7 +98,7 @@ fun CameraScreen(
             else onBack()
         }
 
-        BackHandler(enabled = capturedImage != null || status == PermissionStatus.Granted) {
+        BackHandler(enabled = capturedImage != null) {
             handleOnBack()
         }
 
@@ -147,9 +148,9 @@ fun CameraScreen(
             PermissionStatus.Unknown -> LaunchedEffect(Unit) { requestPermission() }
             PermissionStatus.Denied -> RationaleDialog(
                 onConfirm = requestPermission,
-                onCancel = onBack
+                onCancel = onClose
             )
-            PermissionStatus.PermanentlyDenied -> SettingsDialog(onBack, onBack)
+            PermissionStatus.PermanentlyDenied -> SettingsDialog(onClose, onBack)
         }
     }
 }
