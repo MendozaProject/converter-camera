@@ -6,11 +6,11 @@ import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
 
-class TextConverter(val sessionRepository: SessionRepository) {
+class TextConverter(val sessionRepository: SessionRepository? = null) {
 
     fun getConvertedText(amount: BigDecimal): String {
-        val convertedAmount = sessionRepository.convertCurrency(amount)
-        val data = sessionRepository.getToCurrencyData()
+        val convertedAmount = sessionRepository?.convertCurrency(amount) ?: BigDecimal("-1.0")
+        val data = sessionRepository?.getToCurrencyData()
 
         return if (data != null && convertedAmount >= BigDecimal.ZERO)
             formatCurrency(convertedAmount, data.isoCode) else "null"
