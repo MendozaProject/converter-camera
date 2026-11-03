@@ -1,6 +1,10 @@
 package com.devsquid.convertercamera.ui
 
+import android.app.Activity
+import android.content.Context
+import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -22,15 +26,17 @@ data class SelectorRoute(val mode: Int)
 
 @Composable
 fun AppNavHost(
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
 ) {
+    val activity = LocalActivity.current
     NavHost(navController = navController, startDestination = CameraRoute) {
         composable<CameraRoute> {
             CameraScreen(
                 onNavigateToSelectorRoute = { mode: Int ->
                     navController.navigate(SelectorRoute(mode))
                 },
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
+                onClose = { activity?.finish() }
             )
         }
         composable<SelectorRoute> {
