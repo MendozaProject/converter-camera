@@ -47,7 +47,7 @@ val appModule = module {
 }
 
 val ocrModule = module {
-    single<TextRecognizer> { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    factory<TextRecognizer> { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
     single<Executor> { ContextCompat.getMainExecutor(androidContext()) }
     factory { TextScanner(get(), get()) }
 }
