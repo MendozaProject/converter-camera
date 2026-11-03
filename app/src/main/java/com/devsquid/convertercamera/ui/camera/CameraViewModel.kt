@@ -8,13 +8,12 @@ import android.graphics.RectF
 import androidx.annotation.OptIn
 import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageProxy
-import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.devsquid.convertercamera.business.TextConverter
 import com.devsquid.convertercamera.business.TextScanner
-import com.devsquid.convertercamera.business.TextScanner.ScannedTextData
 import com.devsquid.convertercamera.database.SessionRepository
 import com.devsquid.convertercamera.ui.CurrencyListItemData
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -22,11 +21,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlin.collections.forEach
+import java.math.BigDecimal
 
 class CameraViewModel(
     private val sessionRepository: SessionRepository,
     private val textScanner: TextScanner,
+    private val textConverter: TextConverter,
     private val camera: Camera
 ): ViewModel() {
 
@@ -58,7 +58,7 @@ class CameraViewModel(
         }
         viewModelScope.launch {
             sessionRepository.currencyDataState.collect { state ->
-                if (state != null && state.fromCurrencyData != null && state.toCurrencyData != null) {
+                if (state?.fromCurrencyData != null && state.toCurrencyData != null) {
                     _currencyConverterState.update {
                         CurrencyConverterState(
                             fromCurrency = CurrencyListItemData(
@@ -107,7 +107,15 @@ class CameraViewModel(
                 val rawBitmap = image.toBitmap()
                 val bitmap = if (rotationDegrees != 0) {
                     val matrix = Matrix().apply { postRotate(rotationDegrees.toFloat()) }
-                    Bitmap.createBitmap(rawBitmap, 0, 0, rawBitmap.width, rawBitmap.height, matrix, true)
+                    Bitmap.createBitmap(
+                        rawBitmap,
+                        0,
+                        0,
+                        rawBitmap.width,
+                        rawBitmap.height,
+                        matrix,
+                        true
+                    )
                 } else {
                     rawBitmap
                 }
@@ -123,14 +131,18 @@ class CameraViewModel(
         val newTextData = mutableListOf<OverlayText>()
         scannedTextData.forEach {
             newTextData.add(
-                it.copy(replacementText = textScanner.getConvertedText(it.originalValue))
+                it.copy(
+                    replacementText = textConverter.getConvertedText(
+                        it.originalValue
+                    )
+                )
             )
         }
         return newTextData
     }
 
     private suspend fun analyzeImage(image: ImageProxy) {
-        _overlays.update{
+        _overlays.update {
             textScanner.recognizePrices(image).map {
                 OverlayText(
                     id = it.id,
@@ -195,7 +207,7 @@ class CameraViewModel(
 data class OverlayText(
     val id: String,
     val rectInBitmapCoords: RectF,
-    val originalValue: Double,
+    val originalValue: BigDecimal,
     val originalText: String,
     val replacementText: String,
     val converted: Boolean,

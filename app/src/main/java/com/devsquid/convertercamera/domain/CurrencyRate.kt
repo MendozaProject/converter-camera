@@ -1,5 +1,7 @@
 package com.devsquid.convertercamera.domain
 
+import java.math.BigDecimal
+
 /**
  * Domain layer object for storing Currency data as well as the rate against the US Dollar
  *
@@ -13,6 +15,6 @@ data class CurrencyRate (
     val isoCode: String,
     val name: String,
     val symbol: String,
-    val rateAgainstUsd: Double,
+    val rateAgainstUsd: BigDecimal,
     val decimalPlaces: Int
 )

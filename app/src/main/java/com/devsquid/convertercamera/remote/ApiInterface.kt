@@ -10,6 +10,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import org.jetbrains.annotations.VisibleForTesting
+import java.math.BigDecimal
 
 class ApiInterface {
 
@@ -42,8 +43,8 @@ class ApiInterface {
      *
      * @return  a map containing the currency iso code and the current rate against USD
      */
-    suspend fun makeGetRatesRequest(): Map<String, Double>? {
-        var currencyRatesMap: Map<String, Double>? = null
+    suspend fun makeGetRatesRequest(): Map<String, BigDecimal>? {
+        var currencyRatesMap: Map<String, BigDecimal>? = null
 
         val request = Request.Builder().url("$BASE_URL$LATEST_REQUEST$APP_ID$API_KEY").build()
         println(request.url)
@@ -89,7 +90,7 @@ class ApiInterface {
      * @param   responseBody    The JSON formatted string to be parsed
      */
     @VisibleForTesting
-    fun parseLatestRatesJson(responseBody: String): Map<String, Double>? {
+    fun parseLatestRatesJson(responseBody: String): Map<String, BigDecimal>? {
         println("Response: $responseBody")
         val adapter = Moshi.Builder()
             .add(ApiUpdateAdapter())

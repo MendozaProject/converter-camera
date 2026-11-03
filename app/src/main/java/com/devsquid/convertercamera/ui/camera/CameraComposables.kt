@@ -62,12 +62,12 @@ import com.devsquid.convertercamera.R
 import com.devsquid.convertercamera.ui.CurrencyListItemData
 import com.devsquid.convertercamera.ui.MODE_SET_CONVERT_CURRENCY
 import com.devsquid.convertercamera.ui.MODE_SET_ORIGINAL_CURRENCY
-import com.devsquid.convertercamera.ui.theme.Dimens
+import com.devsquid.convertercamera.ui.ZoomableImageViewer
 import com.devsquid.convertercamera.ui.dialog.PermissionRequestDialog
 import com.devsquid.convertercamera.ui.dialog.PermissionStatus
 import com.devsquid.convertercamera.ui.dialog.SettingsDialog
-import com.devsquid.convertercamera.ui.ZoomableImageViewer
 import com.devsquid.convertercamera.ui.dialog.rememberPermissionState
+import com.devsquid.convertercamera.ui.theme.Dimens
 import org.koin.androidx.compose.koinViewModel
 
 @Composable

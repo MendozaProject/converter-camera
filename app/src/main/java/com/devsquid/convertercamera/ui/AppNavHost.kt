@@ -1,18 +1,12 @@
 package com.devsquid.convertercamera.ui
 
-import android.app.Activity
-import android.content.Context
 import androidx.activity.compose.LocalActivity
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.NavHostController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
 import com.devsquid.convertercamera.ui.camera.CameraScreen
-import com.devsquid.convertercamera.ui.camera.CameraViewModel
 import com.devsquid.convertercamera.ui.selector.CurrencySelectorScreen
 import kotlinx.serialization.Serializable
 
