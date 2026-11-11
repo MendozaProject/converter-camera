@@ -4,12 +4,13 @@ import com.squareup.moshi.FromJson
 import com.squareup.moshi.JsonReader
 import com.squareup.moshi.JsonWriter
 import com.squareup.moshi.ToJson
+import java.math.BigDecimal
 
 
 class ApiUpdateAdapter {
     @FromJson
     fun fromJson(reader: JsonReader): CurrencyLatestRatesResponse {
-        val map: MutableMap<String, Double> = mutableMapOf()
+        val map: MutableMap<String, BigDecimal> = mutableMapOf()
 
         var timestamp: Long = 0L
         var baseIsoCode: String =""
@@ -25,7 +26,7 @@ class ApiUpdateAdapter {
                             reader.beginObject()
                             while (reader.hasNext()) {
                                 val isoCode = reader.nextName()
-                                map[isoCode] = reader.nextDouble()
+                                map[isoCode] = BigDecimal(reader.nextDouble().toString())
                             }
                             reader.endObject()
                         }

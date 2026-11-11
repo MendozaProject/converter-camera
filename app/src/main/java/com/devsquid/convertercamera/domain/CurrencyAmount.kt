@@ -1,5 +1,7 @@
 package com.devsquid.convertercamera.domain
 
+import java.math.BigDecimal
+
 /**
  * Domain layer object for storing Currency data as well as a converted amount
  *
@@ -12,5 +14,5 @@ data class CurrencyAmount (
     val isoCode: String,
     val name: String,
     val symbol: String = "",
-    val amount: Double,
+    val amount: BigDecimal,
 )

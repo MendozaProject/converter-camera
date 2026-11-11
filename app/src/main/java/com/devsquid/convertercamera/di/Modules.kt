@@ -2,7 +2,7 @@ package com.devsquid.convertercamera.di
 
 import androidx.core.content.ContextCompat
 import androidx.room.Room.databaseBuilder
-import com.devsquid.convertercamera.business.ConvertCurrenciesUseCase
+import com.devsquid.convertercamera.business.TextParser
 import com.devsquid.convertercamera.business.TextScanner
 import com.devsquid.convertercamera.database.AppDatabase
 import com.devsquid.convertercamera.database.SessionRepository
@@ -29,7 +29,9 @@ val roomModule = module {
         databaseBuilder(
             androidContext(),
             AppDatabase::class.java, "cache_database"
-        ).build()
+        )
+            .fallbackToDestructiveMigration(true)
+            .build()
     }
     single { get<AppDatabase>().currencyDataDao() }
 }
@@ -37,7 +39,7 @@ val roomModule = module {
 val appModule = module {
     single { CurrencyRepository(get()) }
     single { ApiInterface() }
-    single { ConvertCurrenciesUseCase() }
+    single { TextParser() }
     single { FetchCurrencyDataTask(get(), get()) }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     single { SessionRepository(get(), get(), androidContext()) }
@@ -49,5 +51,5 @@ val appModule = module {
 val ocrModule = module {
     factory<TextRecognizer> { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
     single<Executor> { ContextCompat.getMainExecutor(androidContext()) }
-    factory { TextScanner(get(), get()) }
+    factory { TextScanner(get(), get(), get()) }
 }

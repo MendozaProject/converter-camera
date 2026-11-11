@@ -17,6 +17,11 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.math.BigDecimal
+import java.math.RoundingMode
+import java.text.NumberFormat
+import java.util.Currency
+import java.util.Locale
 
 class SessionRepository(
     currencyRepository: CurrencyRepository,
@@ -75,16 +80,8 @@ class SessionRepository(
         }
     }
 
-    fun setDecimalDelimiter(delimiter: Char) {
-        _session.value = _session.value.copy(decimalDelimiter = delimiter)
-    }
-
-    fun getDecimalDelimiter(): Char {
-        return sessionState.value.decimalDelimiter
-    }
-
-    fun convertCurrency(amount: Double): Double {
-        return currencyDataState.value?.convertCurrency(amount) ?: -1.0
+    fun convertCurrency(amount: BigDecimal): BigDecimal {
+        return currencyDataState.value?.convertPrice(amount) ?: BigDecimal("-1.0")
     }
 
     fun getToCurrencyData(): CurrencyRate? {
@@ -93,14 +90,6 @@ class SessionRepository(
 
     fun getFromCurrencyData(): CurrencyRate? {
         return currencyDataState.value?.fromCurrencyData
-    }
-
-    fun getToCurrencySymbol(): String {
-        return currencyDataState.value?.toCurrencyData?.symbol ?: ""
-    }
-
-    fun getFromCurrencySymbol(): String {
-        return currencyDataState.value?.fromCurrencyData?.symbol ?: ""
     }
 
     data class SessionState(
@@ -114,13 +103,37 @@ class SessionRepository(
         val fromCurrencyData: CurrencyRate? = null,
         val toCurrencyData: CurrencyRate? = null,
     ) {
-        val conversionRate: Double =
-            if (toCurrencyData != null && fromCurrencyData != null)
-                toCurrencyData.rateAgainstUsd / fromCurrencyData.rateAgainstUsd
-            else -1.0
+        val conversionRate: BigDecimal =
+            if (toCurrencyData != null && fromCurrencyData != null && fromCurrencyData.rateAgainstUsd > BigDecimal.ZERO)
+                toCurrencyData.rateAgainstUsd.divide(fromCurrencyData.rateAgainstUsd, 10, RoundingMode.HALF_UP)
+            else BigDecimal("-1.0")
 
-        fun convertCurrency(amount: Double): Double {
-            return if (conversionRate >= 0) amount * conversionRate else -1.0
+        fun convertPrice(amount: BigDecimal): BigDecimal {
+            return if (conversionRate >= BigDecimal.ZERO) amount.multiply(conversionRate) else BigDecimal("-1.0")
+        }
+
+        fun formatToCurrency(amount: BigDecimal): String {
+            val isoCode = toCurrencyData?.isoCode
+            return if (isoCode != null) amount.format(isoCode) else "null"
+        }
+
+        fun formatFromCurrency(amount: BigDecimal): String {
+            val isoCode = fromCurrencyData?.isoCode
+            return if (isoCode != null) amount.format(isoCode) else "null"
+        }
+
+        fun convertAndFormatPrice(amount: BigDecimal): String {
+            return formatToCurrency(convertPrice(amount))
+        }
+
+        fun BigDecimal.format(currencyCode: String, locale: Locale = Locale.getDefault()): String {
+            if (this <= BigDecimal.ZERO) return "null"
+            val currency = Currency.getInstance(currencyCode)
+            val format = NumberFormat.getCurrencyInstance(locale)
+            format.currency = currency
+            format.minimumFractionDigits = currency.defaultFractionDigits
+            format.maximumFractionDigits = currency.defaultFractionDigits
+            return format.format(this)
         }
     }
 

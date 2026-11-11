@@ -43,6 +43,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.IntOffset
 import com.devsquid.convertercamera.ui.camera.OverlayText
 import com.devsquid.convertercamera.ui.theme.Dimens
+import java.math.BigDecimal
 import kotlin.math.roundToInt
 
 @Composable
@@ -243,7 +244,7 @@ fun PreviewOverlayTextBox() {
                 originalText = "100",
                 replacementText = "$1.50",
                 converted = true,
-                originalValue = 0.0
+                originalValue = BigDecimal.ZERO
             ),
             left = 50f,
             top = 50f,
