@@ -16,18 +16,16 @@ import kotlin.coroutines.resumeWithException
 class TextScanner(
     private val recognizer: TextRecognizer,
     private val textParser: TextParser,
-    private val textConverter: TextConverter
+    private val priceConverter: PriceConverter
 ) {
     @OptIn(ExperimentalGetImage::class)
     suspend fun recognizePrices(imageProxy: ImageProxy): List<ScannedTextData> {
+
         imageProxy.use {
             val mediaImage = it.image
                 ?: throw IllegalStateException("Captured image had no backing data")
 
-            val inputImage = InputImage.fromMediaImage(
-                mediaImage,
-                it.imageInfo.rotationDegrees
-            )
+            val inputImage = InputImage.fromMediaImage(mediaImage, it.imageInfo.rotationDegrees)
             val result = recognizer.recognizeSuspend(inputImage)
             return result.extractNumbers()
         }
@@ -41,12 +39,15 @@ class TextScanner(
         }
 
     private fun Text.extractNumbers(): List<ScannedTextData> {
+        val convertFromIsoCode = priceConverter.fromIsoCode()
+        val convertToIsoCode = priceConverter.toIsoCode()
         val result = mutableListOf<ScannedTextData>()
+
         this.textBlocks.forEach { block ->
             block.lines.forEach { line ->
                 line.elements.forEach { element ->
                     if (element.confidence > 0.6f) {
-                        textParser.parseAmount(element.text).let { parsed ->
+                        textParser.parsePriceText(element.text, convertFromIsoCode).let { parsed ->
                             if (parsed.status != TextParser.Status.MALFORMED && parsed.value != null) {
                                 result.add(
                                     ScannedTextData(
@@ -54,7 +55,9 @@ class TextScanner(
                                         rect = RectF(line.boundingBox),
                                         originalValue = parsed.value,
                                         originalText = element.text,
-                                        replacementText = textConverter.getConvertedText(parsed.value)
+                                        replacementText = priceConverter
+                                            .convertPrice(parsed.value)
+                                            .format(convertToIsoCode)
                                     )
                                 )
                             }

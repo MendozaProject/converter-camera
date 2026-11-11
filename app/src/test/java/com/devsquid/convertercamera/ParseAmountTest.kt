@@ -13,11 +13,11 @@ import java.math.BigDecimal
 
 class ParseAmountTest {
 
-    private val textParser = TextParser(null)
+    private val textParser = TextParser()
 
     /** Compares numerically (0.500 == 0.5) and checks the status. */
     private fun assertParsed(raw: String, currency: String, expected: String, status: Status) {
-        val result = textParser.parseAmount(raw, currency)
+        val result = textParser.parsePriceText(raw, currency)
         assertEquals("status for '$raw' $currency", status, result.status)
         val value = result.value
         assertTrue(
@@ -27,7 +27,7 @@ class ParseAmountTest {
     }
 
     private fun assertMalformed(raw: String, currency: String = "USD") {
-        val result = textParser.parseAmount(raw, currency)
+        val result = textParser.parsePriceText(raw, currency)
         assertEquals("status for '$raw'", Status.MALFORMED, result.status)
         assertNull("value for '$raw'", result.value)
     }
@@ -183,10 +183,10 @@ class ParseAmountTest {
 
     @Test
     fun `movePointRight then longValueExact catches excess precision`() {
-        val ok = textParser.parseAmount("1.234", "KWD").value!!
+        val ok = textParser.parsePriceText("1.234", "KWD").value!!
         assertEquals(1234L, ok.movePointRight(3).longValueExact())
 
-        val tooPrecise = textParser.parseAmount("1.2345", "KWD").value!!
+        val tooPrecise = textParser.parsePriceText("1.2345", "KWD").value!!
         assertThrows(ArithmeticException::class.java) {
             tooPrecise.movePointRight(3).longValueExact()
         }

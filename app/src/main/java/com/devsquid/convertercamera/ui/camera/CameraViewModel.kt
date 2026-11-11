@@ -12,8 +12,9 @@ import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.devsquid.convertercamera.business.TextConverter
+import com.devsquid.convertercamera.business.PriceConverter
 import com.devsquid.convertercamera.business.TextScanner
+import com.devsquid.convertercamera.business.format
 import com.devsquid.convertercamera.database.SessionRepository
 import com.devsquid.convertercamera.ui.CurrencyListItemData
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,7 @@ import java.math.BigDecimal
 class CameraViewModel(
     private val sessionRepository: SessionRepository,
     private val textScanner: TextScanner,
-    private val textConverter: TextConverter,
+    private val priceConverter: PriceConverter,
     private val camera: Camera
 ): ViewModel() {
 
@@ -45,17 +46,9 @@ class CameraViewModel(
     private val _capturedImageState = MutableStateFlow<Bitmap?>(null)
     val capturedImageState = _capturedImageState.asStateFlow()
 
-    private val _decimalDelimiter = MutableStateFlow('.')
-    val decimalDelimiter = _decimalDelimiter.asStateFlow()
-
     private val hiddenOverlayIds = ArrayDeque<String>()
 
     init {
-        viewModelScope.launch {
-            sessionRepository.sessionState.collect {
-                _decimalDelimiter.update { sessionRepository.getDecimalDelimiter() }
-            }
-        }
         viewModelScope.launch {
             sessionRepository.currencyDataState.collect { state ->
                 if (state?.fromCurrencyData != null && state.toCurrencyData != null) {
@@ -132,9 +125,9 @@ class CameraViewModel(
         scannedTextData.forEach {
             newTextData.add(
                 it.copy(
-                    replacementText = textConverter.getConvertedText(
-                        it.originalValue
-                    )
+                    replacementText = priceConverter
+                        .convertPrice(it.originalValue)
+                        .format(priceConverter.toIsoCode())
                 )
             )
         }

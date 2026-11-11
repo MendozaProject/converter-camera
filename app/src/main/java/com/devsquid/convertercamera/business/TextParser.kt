@@ -1,18 +1,10 @@
 package com.devsquid.convertercamera.business
 
-import com.devsquid.convertercamera.database.SessionRepository
 import java.math.BigDecimal
 import java.util.Currency
 
-class TextParser(val sessionRepository: SessionRepository? = null) {
-
-    fun parseAmount(raw: String): ParsedAmount {
-        val currency = sessionRepository?.getFromCurrencyData()?.isoCode
-            ?: return ParsedAmount(null, Status.MALFORMED)
-        return parseAmount(raw, currency)
-    }
-
-    fun parseAmount(raw: String, currency: String): ParsedAmount {
+class TextParser {
+    fun parsePriceText(raw: String, isoCode: String): ParsedAmount {
         val s = raw.replace(strip, "").replace(separators, ".")
 
         val parts = s.split(".")
@@ -43,7 +35,7 @@ class TextParser(val sessionRepository: SessionRepository? = null) {
         // Exactly 3 digits after the separator: the one true ambiguity
         if (h == "0" || h.length > 3) return ParsedAmount(BigDecimal("$h.$last"), Status.OK)
 
-        return if (currencyExponent(currency) == 3)
+        return if (currencyExponent(isoCode) == 3)
             ParsedAmount(BigDecimal("$h.$last"), Status.INFERRED)
         else
             ParsedAmount(BigDecimal(h + last), Status.INFERRED)

@@ -2,7 +2,6 @@ package com.devsquid.convertercamera.di
 
 import androidx.core.content.ContextCompat
 import androidx.room.Room.databaseBuilder
-import com.devsquid.convertercamera.business.TextConverter
 import com.devsquid.convertercamera.business.TextParser
 import com.devsquid.convertercamera.business.TextScanner
 import com.devsquid.convertercamera.database.AppDatabase
@@ -40,8 +39,7 @@ val roomModule = module {
 val appModule = module {
     single { CurrencyRepository(get()) }
     single { ApiInterface() }
-    single { TextParser(get()) }
-    single { TextConverter(get()) }
+    single { TextParser() }
     single { FetchCurrencyDataTask(get(), get()) }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     single { SessionRepository(get(), get(), androidContext()) }
