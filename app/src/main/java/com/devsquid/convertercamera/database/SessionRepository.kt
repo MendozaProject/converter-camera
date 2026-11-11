@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -25,7 +26,7 @@ import java.util.Locale
 
 class SessionRepository(
     currencyRepository: CurrencyRepository,
-    appScope: CoroutineScope,
+    private val appScope: CoroutineScope,
     private val context: Context
 ) {
     private val _session = MutableStateFlow(SessionState())
@@ -49,11 +50,27 @@ class SessionRepository(
 
     init {
         appScope.launch {
-            _session.collect { session ->
-                context.dataStore.edit {
-                    it[FROM_CURRENCY_ISO] = session.fromCurrencyISO
-                    it[TO_CURRENCY_ISO] = session.toCurrencyISO
+            val preferences = context.dataStore.data.first()
+            val savedFrom = preferences[FROM_CURRENCY_ISO]
+            val savedTo = preferences[TO_CURRENCY_ISO]
+            if (savedFrom != null || savedTo != null) {
+                _session.update { state ->
+                    state.copy(
+                        fromCurrencyISO = savedFrom ?: state.fromCurrencyISO,
+                        toCurrencyISO = savedTo ?: state.toCurrencyISO
+                    )
                 }
+            }
+        }
+    }
+
+    private inline fun updateAndSave(block: (SessionState) -> SessionState) {
+        _session.update(block)
+        val currentState = _session.value
+        appScope.launch {
+            context.dataStore.edit {
+                it[FROM_CURRENCY_ISO] = currentState.fromCurrencyISO
+                it[TO_CURRENCY_ISO] = currentState.toCurrencyISO
             }
         }
     }
@@ -62,7 +79,7 @@ class SessionRepository(
         if (isoCode == _session.value.fromCurrencyISO) {
             swapCurrency()
         } else {
-            _session.update { it.copy(toCurrencyISO = isoCode) }
+            updateAndSave { it.copy(toCurrencyISO = isoCode) }
         }
     }
 
@@ -70,12 +87,12 @@ class SessionRepository(
         if (isoCode == _session.value.toCurrencyISO) {
             swapCurrency()
         } else {
-            _session.update { it.copy(fromCurrencyISO = isoCode)}
+            updateAndSave { it.copy(fromCurrencyISO = isoCode) }
         }
     }
 
     fun swapCurrency() {
-        _session.update {
+        updateAndSave {
             it.copy(toCurrencyISO = it.fromCurrencyISO, fromCurrencyISO = it.toCurrencyISO)
         }
     }

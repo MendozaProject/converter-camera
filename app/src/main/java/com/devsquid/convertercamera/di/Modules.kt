@@ -2,6 +2,7 @@ package com.devsquid.convertercamera.di
 
 import androidx.core.content.ContextCompat
 import androidx.room.Room.databaseBuilder
+import com.devsquid.convertercamera.business.PriceConverter
 import com.devsquid.convertercamera.business.TextParser
 import com.devsquid.convertercamera.business.TextScanner
 import com.devsquid.convertercamera.database.AppDatabase
@@ -43,6 +44,7 @@ val appModule = module {
     single { FetchCurrencyDataTask(get(), get()) }
     single { CoroutineScope(SupervisorJob() + Dispatchers.Default) }
     single { SessionRepository(get(), get(), androidContext()) }
+    single { PriceConverter(get()) }
     single { Camera(get()) }
     viewModelOf(::CameraViewModel)
     viewModelOf(::CurrencySelectorViewModel)
