@@ -50,4 +50,15 @@ class OcrModuleTest {
         // Clean up second instance
         recognizer2.close()
     }
+
+    @Test
+    fun testScannersResolution() {
+        val mlKitScanner = get().get<com.devsquid.convertercamera.business.MLKitTextScanner>()
+        assertNotNull(mlKitScanner)
+        mlKitScanner.close()
+
+        val aiScanner = get().get<com.devsquid.convertercamera.business.AITextScanner>()
+        assertNotNull(aiScanner)
+        aiScanner.close()
+    }
 }

@@ -33,6 +33,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,6 +86,8 @@ fun CameraScreen(
         val capturedImage by capturedImageState.collectAsStateWithLifecycle()
         val isProcessing by isProcessing.collectAsStateWithLifecycle()
         val canUndo by canUndo.collectAsStateWithLifecycle()
+        val isAiScannerEnabled by isAiScannerEnabled.collectAsStateWithLifecycle()
+        val isAiAvailable by isAiAvailable.collectAsStateWithLifecycle()
 
         var showOverlay by remember { mutableStateOf(true) }
 
@@ -127,21 +131,32 @@ fun CameraScreen(
                         )
                     }
                 ) {
-                    if (capturedImage != null) {
-                        val overlays by priceBoxes.collectAsState()
-                        DisplayImage(
-                            image = capturedImage!!,
-                            overlayTexts = overlays,
-                            showOverlay = showOverlay,
-                            onOverlayTapped = { },
-                            onOverlayLongTapped = { hideOverlayEntry(it.id) }
-                        )
-                    } else {
-                        CameraViewer(::bindCamera, ::setZoom)
-                    }
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        if (capturedImage != null) {
+                            val overlays by priceBoxes.collectAsState()
+                            DisplayImage(
+                                image = capturedImage!!,
+                                overlayTexts = overlays,
+                                showOverlay = showOverlay,
+                                onOverlayTapped = { },
+                                onOverlayLongTapped = { hideOverlayEntry(it.id) }
+                            )
+                        } else {
+                            CameraViewer(::bindCamera, ::setZoom)
+                        }
 
-                    if (isProcessing) {
-                        LoadingOverlay()
+                        ScannerToggleSwitch(
+                            isAiEnabled = isAiScannerEnabled,
+                            enabled = capturedImage == null && isAiAvailable,
+                            onToggle = ::setAiScannerEnabled,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .padding(top = Dimens.paddingMedium)
+                        )
+
+                        if (isProcessing) {
+                            LoadingOverlay()
+                        }
                     }
                 }
 
@@ -213,7 +228,7 @@ fun UndoButton(onClick: () -> Unit) {
             tint = MaterialTheme.colorScheme.onSecondary
         )
         Text(
-            text = "Undo",
+            text = stringResource(R.string.undo),
             color = MaterialTheme.colorScheme.onSecondary
         )
     }
@@ -451,5 +466,44 @@ fun PreviewDisplayImage() {
             )
         }
     )
+}
+
+@Composable
+fun ScannerToggleSwitch(
+    isAiEnabled: Boolean,
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        tonalElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "ML Kit",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (!isAiEnabled) FontWeight.Bold else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Switch(
+                checked = isAiEnabled,
+                onCheckedChange = onToggle,
+                enabled = enabled,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+            Text(
+                text = "AI Enhanced",
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isAiEnabled) FontWeight.Bold else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
 }
 

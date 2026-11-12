@@ -12,11 +12,15 @@ import androidx.camera.view.PreviewView
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.util.Log
+import com.devsquid.convertercamera.business.AITextScanner
+import com.devsquid.convertercamera.business.MLKitTextScanner
 import com.devsquid.convertercamera.business.PriceConverter
-import com.devsquid.convertercamera.business.TextScanner
 import com.devsquid.convertercamera.business.format
 import com.devsquid.convertercamera.database.SessionRepository
 import com.devsquid.convertercamera.ui.CurrencyListItemData
+import com.google.mlkit.genai.common.FeatureStatus
+import com.google.mlkit.genai.prompt.GenerativeModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -26,13 +30,25 @@ import java.math.BigDecimal
 
 class CameraViewModel(
     private val sessionRepository: SessionRepository,
-    private val textScanner: TextScanner,
+    private val mlKitTextScanner: MLKitTextScanner,
+    private val aiTextScanner: AITextScanner,
+    private val generativeModel: GenerativeModel,
     private val priceConverter: PriceConverter,
     private val camera: Camera
 ): ViewModel() {
 
     private val _currencyConverterState = MutableStateFlow(CurrencyConverterState())
     val currencyConverterState = _currencyConverterState.asStateFlow()
+
+    private val _isAiScannerEnabled = MutableStateFlow(false)
+    val isAiScannerEnabled: StateFlow<Boolean> = _isAiScannerEnabled.asStateFlow()
+
+    private val _isAiAvailable = MutableStateFlow(false)
+    val isAiAvailable: StateFlow<Boolean> = _isAiAvailable.asStateFlow()
+
+    fun setAiScannerEnabled(enabled: Boolean) {
+        _isAiScannerEnabled.update { enabled }
+    }
 
     private val _overlays = MutableStateFlow(emptyList<OverlayText>())
     val priceBoxes: StateFlow<List<OverlayText>> = _overlays.asStateFlow()
@@ -49,6 +65,23 @@ class CameraViewModel(
     private val hiddenOverlayIds = ArrayDeque<String>()
 
     init {
+        viewModelScope.launch {
+            try {
+                val status = generativeModel.checkStatus()
+                @Suppress("DEPRECATION")
+                val structuredOutput = generativeModel.isStructuredOutputFeatureAvailable() == true
+                val available = status == FeatureStatus.AVAILABLE && structuredOutput
+                _isAiAvailable.update { available }
+                if (!available) {
+                    _isAiScannerEnabled.update { false }
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error checking AI availability", e)
+                _isAiAvailable.update { false }
+                _isAiScannerEnabled.update { false }
+            }
+        }
+
         viewModelScope.launch {
             sessionRepository.currencyDataState.collect { state ->
                 if (state?.fromCurrencyData != null && state.toCurrencyData != null) {
@@ -75,7 +108,8 @@ class CameraViewModel(
     }
 
     override fun onCleared() {
-        textScanner.close()
+        mlKitTextScanner.close()
+        aiTextScanner.close()
     }
 
     fun swapCurrencies() {
@@ -135,8 +169,15 @@ class CameraViewModel(
     }
 
     private suspend fun analyzeImage(image: ImageProxy) {
+        val scanner = if (_isAiScannerEnabled.value) aiTextScanner else mlKitTextScanner
+        val results = try {
+            scanner.recognizePrices(image)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error recognizing prices", e)
+            emptyList()
+        }
         _overlays.update {
-            textScanner.recognizePrices(image).map {
+            results.map {
                 OverlayText(
                     id = it.id,
                     rectInBitmapCoords = it.rect,

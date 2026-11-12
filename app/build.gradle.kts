@@ -25,7 +25,7 @@ android {
 
     defaultConfig {
         applicationId = "com.devsquid.convertercamera"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"
@@ -66,6 +66,8 @@ dependencies {
     implementation(libs.androidx.concurrent.futures.ktx)
     implementation(libs.play.services.mlkit.text.recognition.common)
     implementation(libs.play.services.mlkit.text.recognition)
+    implementation(libs.mlkit.genai.prompt)
+    ksp(libs.mlkit.genai.schema.compiler)
 
     annotationProcessor(libs.androidx.room.compiler)
     ksp(libs.androidx.room.compiler)
