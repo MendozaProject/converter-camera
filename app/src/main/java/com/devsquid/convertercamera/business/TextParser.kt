@@ -4,6 +4,15 @@ import java.math.BigDecimal
 import java.util.Currency
 
 class TextParser {
+
+    fun parsePriceText(raw: List<String>, isoCode: String): List<ParsedAmount> {
+        val parsedAmounts = mutableListOf<ParsedAmount>()
+        raw.forEach {
+            parsedAmounts.add(parsePriceText(it, isoCode))
+        }
+        return parsedAmounts
+    }
+
     fun parsePriceText(raw: String, isoCode: String): ParsedAmount {
         val s = raw.replace(strip, "").replace(separators, ".")
 

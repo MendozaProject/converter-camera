@@ -1,8 +1,13 @@
 <resources>
-    <string name="app_name">ConverterCamera</string>
+    <string name="app_name">Camverter</string>
     <string name="enable_camera_dialog_message">Enable camera access in Settings to continue.</string>
     <string name="dialog_camera_access_required_message">Camera access is needed to scan numbers.</string>
     <string name="dialog_camera_access_required_title">Camera Required</string>
     <string name="tooltip_swap_currencies_icon">Swap currencies</string>
     <string name="undo">Undo</string>
+    <string name="price_tag_hidden">Price tag hidden</string>
+    <string name="back">Back</string>
+    <string name="no_price_tags_found">No price tags found</string>
+    <string name="label_original">Original</string>
+    <string name="label_converted">Converted</string>
 </resources>

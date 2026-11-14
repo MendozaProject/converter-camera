@@ -5,11 +5,15 @@ import android.content.Context
 import android.graphics.Bitmap
 import androidx.activity.compose.BackHandler
 import androidx.camera.view.PreviewView
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.calculateEndPadding
+import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -20,11 +24,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.CurrencyExchange
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -33,6 +35,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -43,16 +50,23 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
@@ -69,8 +83,12 @@ import com.devsquid.convertercamera.ui.dialog.PermissionRequestDialog
 import com.devsquid.convertercamera.ui.dialog.PermissionStatus
 import com.devsquid.convertercamera.ui.dialog.SettingsDialog
 import com.devsquid.convertercamera.ui.dialog.rememberPermissionState
+import com.devsquid.convertercamera.ui.theme.DarkGray
 import com.devsquid.convertercamera.ui.theme.Dimens
+import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
+
+private const val TOP_SCRIM_ALPHA = 0.5f
 
 @Composable
 fun CameraScreen(
@@ -81,19 +99,61 @@ fun CameraScreen(
 
     val (status, requestPermission) = rememberPermissionState(Manifest.permission.CAMERA)
 
-    with (cameraViewModel) {
+    with(cameraViewModel) {
         val currencyConverterState by currencyConverterState.collectAsStateWithLifecycle()
         val capturedImage by capturedImageState.collectAsStateWithLifecycle()
         val isProcessing by isProcessing.collectAsStateWithLifecycle()
-        val canUndo by canUndo.collectAsStateWithLifecycle()
         val isAiScannerEnabled by isAiScannerEnabled.collectAsStateWithLifecycle()
         val isAiAvailable by isAiAvailable.collectAsStateWithLifecycle()
 
         var showOverlay by remember { mutableStateOf(true) }
+        val snackbarHostState = remember { SnackbarHostState() }
+        val scope = rememberCoroutineScope()
+        val priceTagHiddenMessage = stringResource(R.string.price_tag_hidden)
+        val undoLabel = stringResource(R.string.undo)
+        val noPriceTagsFoundMessage = stringResource(R.string.no_price_tags_found)
+        val showImageViewerUi = !isProcessing && capturedImage != null
+
+        LaunchedEffect(Unit) {
+            noPriceTagsFound.collect {
+                scope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    snackbarHostState.showSnackbar(
+                        message = noPriceTagsFoundMessage,
+                        duration = SnackbarDuration.Short
+                    )
+                }
+            }
+        }
 
         LaunchedEffect(capturedImage) {
+            // A pending undo refers to the previous image, so drop it. Other snackbars
+            // (e.g. "No price tags found", shown as the image is cleared) are left alone.
+            snackbarHostState.currentSnackbarData
+                ?.takeIf { it.visuals.message == priceTagHiddenMessage }
+                ?.dismiss()
             if (capturedImage != null) {
                 showOverlay = true
+            }
+        }
+
+        val onPriceTagLongPressed: (OverlayText) -> Unit = { overlay ->
+            // Replace any visible snackbar so Undo always targets the latest hidden tag.
+            snackbarHostState.currentSnackbarData?.dismiss()
+            if (overlay.hidden) {
+                setOverlayHidden(overlay.id, hidden = false)
+            } else {
+                setOverlayHidden(overlay.id, hidden = true)
+                scope.launch {
+                    val result = snackbarHostState.showSnackbar(
+                        message = priceTagHiddenMessage,
+                        actionLabel = undoLabel,
+                        duration = SnackbarDuration.Short
+                    )
+                    if (result == SnackbarResult.ActionPerformed) {
+                        setOverlayHidden(overlay.id, hidden = false)
+                    }
+                }
             }
         }
 
@@ -110,17 +170,10 @@ fun CameraScreen(
             PermissionStatus.Granted ->
                 CameraFrame(
                     onBack = handleOnBack,
+                    showBackButton = capturedImage != null,
+                    snackbarHostState = snackbarHostState,
                     actionButton = {
                         if (capturedImage == null) CaptureButton(onClick = ::captureImage)
-                        else {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (canUndo) UndoButton(::undoHideOverlay)
-                                ToggleOverlayButton(
-                                    showOverlay = showOverlay,
-                                    onClick = { showOverlay = !showOverlay }
-                                )
-                            }
-                        }
                     },
                     bottomBar = {
                         ConversionBar(
@@ -130,7 +183,7 @@ fun CameraScreen(
                             onSwapCurrencies = ::swapCurrencies
                         )
                     }
-                ) {
+                ) { topBarHeight ->
                     Box(modifier = Modifier.fillMaxSize()) {
                         if (capturedImage != null) {
                             val overlays by priceBoxes.collectAsState()
@@ -139,20 +192,36 @@ fun CameraScreen(
                                 overlayTexts = overlays,
                                 showOverlay = showOverlay,
                                 onOverlayTapped = { },
-                                onOverlayLongTapped = { hideOverlayEntry(it.id) }
+                                onOverlayLongTapped = onPriceTagLongPressed
                             )
-                        } else {
-                            CameraViewer(::bindCamera, ::setZoom)
+                        }
+                        if (!showImageViewerUi) {
+                            // Freeze the preview from the shutter press until the captured
+                            // image is finished processing
+                            CameraViewer(::bindCamera, ::setZoom, frozen = isProcessing)
                         }
 
-                        ScannerToggleSwitch(
-                            isAiEnabled = isAiScannerEnabled,
-                            enabled = capturedImage == null && isAiAvailable,
-                            onToggle = ::setAiScannerEnabled,
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
                                 .align(Alignment.TopCenter)
-                                .padding(top = Dimens.paddingMedium)
-                        )
+                                // Content draws behind the top bar; keep the toggles below it.
+                                .padding(top = topBarHeight + Dimens.paddingMedium)
+                        ) {
+                            ScannerToggleSwitch(
+                                isAiEnabled = isAiScannerEnabled,
+                                enabled = isAiAvailable && !isProcessing,
+                                onToggle = ::setAiScannerEnabled
+                            )
+                            if (showImageViewerUi) {
+                                OverlayToggleSwitch(
+                                    showConverted = showOverlay,
+                                    enabled = true,
+                                    onToggle = { showOverlay = it },
+                                    modifier = Modifier.padding(top = Dimens.paddingSmall)
+                                )
+                            }
+                        }
 
                         if (isProcessing) {
                             LoadingOverlay()
@@ -165,6 +234,7 @@ fun CameraScreen(
                 onConfirm = requestPermission,
                 onCancel = onClose
             )
+
             PermissionStatus.PermanentlyDenied -> SettingsDialog(onClose, onBack)
         }
     }
@@ -173,32 +243,77 @@ fun CameraScreen(
 @Composable
 fun CameraFrame(
     onBack: () -> Unit,
+    showBackButton: Boolean = false,
     bottomBar: @Composable () -> Unit = {},
     actionButton: @Composable () -> Unit = {},
-    content: @Composable BoxScope.() -> Unit
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
+    /** Drawn behind the top bar; receives the top bar's height so it can inset its own UI. */
+    content: @Composable BoxScope.(topBarHeight: Dp) -> Unit
 ) {
+    val layoutDirection = LocalLayoutDirection.current
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                // Always dark, regardless of the system light/dark theme.
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = DarkGray,
+                    contentColor = Color.White,
+                    actionColor = Color.White
+                )
+            }
+        },
         floatingActionButtonPosition = FabPosition.Center,
         topBar = {
-            Text(
-                text = "Converter Camera",
-                style = MaterialTheme.typography.titleLarge,
-                color = MaterialTheme.colorScheme.onBackground,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
+            Box(
                 modifier = Modifier
-                    .statusBarsPadding()
-                    .padding(Dimens.paddingLarge)
                     .fillMaxWidth()
-            )
+                    // Slight scrim so the title stays readable over the camera/image.
+                    .background(
+                        Brush.verticalGradient(
+                            listOf(Color.Black.copy(alpha = TOP_SCRIM_ALPHA), Color.Transparent)
+                        )
+                    )
+            ) {
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .statusBarsPadding()
+                        .padding(Dimens.paddingLarge)
+                        .fillMaxWidth()
+                )
+                if (showBackButton) {
+                    IconButton(
+                        onClick = onBack,
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .statusBarsPadding()
+                            .padding(start = Dimens.paddingSmall)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Default.ArrowBack,
+                            contentDescription = stringResource(R.string.back),
+                            tint = Color.White
+                        )
+                    }
+                }
+            }
         },
         floatingActionButton = { actionButton() },
         content = { contentPadding ->
+            // Skip the top padding so the content extends behind the top bar.
             Box(modifier = Modifier
                 .fillMaxSize()
-                .padding(contentPadding)) {
-                content()
+                .padding(
+                    start = contentPadding.calculateStartPadding(layoutDirection),
+                    end = contentPadding.calculateEndPadding(layoutDirection),
+                )) {
+                content(contentPadding.calculateTopPadding())
             }
         },
         bottomBar = {
@@ -210,51 +325,6 @@ fun CameraFrame(
             }
         },
     )
-}
-
-@Composable
-fun UndoButton(onClick: () -> Unit) {
-    Button(
-        onClick = { onClick() },
-        modifier = Modifier.padding(Dimens.paddingMedium),
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.secondary,
-            contentColor = MaterialTheme.colorScheme.onSecondary
-        )
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Default.Undo,
-            contentDescription = "Undo",
-            tint = MaterialTheme.colorScheme.onSecondary
-        )
-        Text(
-            text = stringResource(R.string.undo),
-            color = MaterialTheme.colorScheme.onSecondary
-        )
-    }
-}
-
-@Composable
-fun ToggleOverlayButton(showOverlay: Boolean, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        modifier = Modifier.padding(Dimens.paddingMedium),
-        colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-            containerColor = MaterialTheme.colorScheme.secondary,
-            contentColor = MaterialTheme.colorScheme.onSecondary
-        )
-    ) {
-        Icon(
-            imageVector = if (showOverlay) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-            contentDescription = if (showOverlay) "Converted" else "Original",
-            tint = MaterialTheme.colorScheme.onSecondary
-        )
-        Text(
-            text = if (showOverlay) "Hide" else "Show",
-            color = MaterialTheme.colorScheme.onSecondary,
-            modifier = Modifier.padding(start = Dimens.paddingSmall)
-        )
-    }
 }
 
 @Composable
@@ -301,7 +371,7 @@ fun ConversionBar(
             modifier = Modifier.weight(1f),
             onClick = { onNavigateToSelectorRoute(MODE_SET_CONVERT_CURRENCY) },
             isoCode = fromCurrencyData.isoCode,
-            name = fromCurrencyData.name
+            symbol = fromCurrencyData.currencySymbol
         )
         IconButton(onClick = { onSwapCurrencies() }) {
             Icon(
@@ -313,7 +383,7 @@ fun ConversionBar(
             modifier = Modifier.weight(1f),
             onClick = { onNavigateToSelectorRoute(MODE_SET_ORIGINAL_CURRENCY) },
             isoCode = toCurrencyData.isoCode,
-            name = toCurrencyData.name
+            symbol = toCurrencyData.currencySymbol
         )
     }
 }
@@ -339,7 +409,7 @@ fun DisplayImage(
 }
 
 @Composable
-fun CurrencyButton(modifier: Modifier, onClick: () -> Unit, isoCode: String, name: String) {
+fun CurrencyButton(modifier: Modifier, onClick: () -> Unit, isoCode: String, symbol: String) {
     Button(
         modifier = modifier.background(
             MaterialTheme.colorScheme.primary,
@@ -347,7 +417,11 @@ fun CurrencyButton(modifier: Modifier, onClick: () -> Unit, isoCode: String, nam
         ),
         onClick = onClick,
     ) {
-        Text(text = isoCode, modifier = Modifier.padding(Dimens.paddingMedium))
+        Text(
+            text = "$isoCode ($symbol)",
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(Dimens.paddingMedium)
+        )
     }
 }
 
@@ -358,14 +432,21 @@ fun CameraViewer(
         lifecycleOwner: LifecycleOwner,
         previewView: PreviewView
     ) -> Unit,
-    onZoom: (Float) -> Unit
+    onZoom: (Float) -> Unit,
+    frozen: Boolean = false
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val previewView = remember { PreviewView(context) }
     var zoomRatio by remember { mutableFloatStateOf(1f) }
+    // Snapshot of the preview shown on top of the live feed while frozen.
+    var frozenFrame by remember { mutableStateOf<Bitmap?>(null) }
 
     LaunchedEffect(Unit) { bindCamera(context, lifecycleOwner, previewView) }
+
+    LaunchedEffect(frozen) {
+        frozenFrame = if (frozen) previewView.bitmap else null
+    }
 
     Box(
         modifier = Modifier
@@ -379,6 +460,15 @@ fun CameraViewer(
             }
     ) {
         AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
+        frozenFrame?.let {
+            // The snapshot is already view-sized, so draw it 1:1 over the preview.
+            Image(
+                bitmap = it.asImageBitmap(),
+                contentDescription = null,
+                contentScale = ContentScale.FillBounds,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
     }
 }
 
@@ -406,6 +496,83 @@ fun LoadingOverlay() {
         }
     }
 }
+
+@Composable
+fun ScannerToggleSwitch(
+    isAiEnabled: Boolean,
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LabeledToggleSwitch(
+        leftLabel = "ML Kit",
+        rightLabel = "AI Enhanced",
+        checked = isAiEnabled,
+        enabled = enabled,
+        onToggle = onToggle,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun OverlayToggleSwitch(
+    showConverted: Boolean,
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    LabeledToggleSwitch(
+        leftLabel = stringResource(R.string.label_original),
+        rightLabel = stringResource(R.string.label_converted),
+        checked = showConverted,
+        enabled = enabled,
+        onToggle = onToggle,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun LabeledToggleSwitch(
+    leftLabel: String,
+    rightLabel: String,
+    checked: Boolean,
+    enabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(24.dp),
+        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+        tonalElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = leftLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (!checked) FontWeight.Bold else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            Switch(
+                checked = checked,
+                onCheckedChange = onToggle,
+                enabled = enabled,
+                modifier = Modifier.padding(horizontal = 8.dp)
+            )
+            Text(
+                text = rightLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (checked) FontWeight.Bold else FontWeight.Normal,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+
 
 @Composable
 fun RationaleDialog(onConfirm: () -> Unit, onCancel: () -> Unit) {
@@ -451,12 +618,6 @@ fun PreviewDisplayImage() {
     CameraFrame(
         onBack = {},
         content = {},
-        actionButton = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                UndoButton(onClick = {})
-                ToggleOverlayButton(showOverlay = true, onClick = {})
-            }
-        },
         bottomBar = {
             ConversionBar(
                 fromCurrencyData = CurrencyListItemData("YEN", "Japanese Yen"),
@@ -467,43 +628,3 @@ fun PreviewDisplayImage() {
         }
     )
 }
-
-@Composable
-fun ScannerToggleSwitch(
-    isAiEnabled: Boolean,
-    enabled: Boolean,
-    onToggle: (Boolean) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(24.dp),
-        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-        tonalElevation = 4.dp
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "ML Kit",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (!isAiEnabled) FontWeight.Bold else FontWeight.Normal,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Switch(
-                checked = isAiEnabled,
-                onCheckedChange = onToggle,
-                enabled = enabled,
-                modifier = Modifier.padding(horizontal = 8.dp)
-            )
-            Text(
-                text = "AI Enhanced",
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = if (isAiEnabled) FontWeight.Bold else FontWeight.Normal,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-        }
-    }
-}
-

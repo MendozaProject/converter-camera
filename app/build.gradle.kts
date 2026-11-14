@@ -66,6 +66,9 @@ dependencies {
     implementation(libs.androidx.concurrent.futures.ktx)
     implementation(libs.play.services.mlkit.text.recognition.common)
     implementation(libs.play.services.mlkit.text.recognition)
+    implementation(libs.play.services.mlkit.text.recognition.japanese)
+    implementation(libs.play.services.mlkit.text.recognition.chinese)
+    implementation(libs.play.services.mlkit.text.recognition.korean)
     implementation(libs.mlkit.genai.prompt)
     ksp(libs.mlkit.genai.schema.compiler)
 

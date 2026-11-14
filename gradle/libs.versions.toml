@@ -25,6 +25,7 @@ ksp = "2.3.10"
 serialization = "2.4.21"
 playServicesMlkitTextRecognitionCommon = "19.1.1"
 playServicesMlkitTextRecognition = "19.0.2"
+playServicesMlkitTextRecognitionCjk = "16.0.2"
 genaiPrompt = "1.0.0-beta5"
 genaiSchemaCompiler = "1.0.0-alpha2"
 
@@ -68,6 +69,9 @@ moshi-kotlin = { module = "com.squareup.moshi:moshi-kotlin", version.ref = "mosh
 moshi = { module = "com.squareup.moshi:moshi", version.ref = "moshiVersion" }
 play-services-mlkit-text-recognition-common = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-common", version.ref = "playServicesMlkitTextRecognitionCommon" }
 play-services-mlkit-text-recognition = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition", version.ref = "playServicesMlkitTextRecognition" }
+play-services-mlkit-text-recognition-japanese = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-japanese", version.ref = "playServicesMlkitTextRecognitionCjk" }
+play-services-mlkit-text-recognition-chinese = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-chinese", version.ref = "playServicesMlkitTextRecognitionCjk" }
+play-services-mlkit-text-recognition-korean = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-korean", version.ref = "playServicesMlkitTextRecognitionCjk" }
 mlkit-genai-prompt = { module = "com.google.mlkit:genai-prompt", version.ref = "genaiPrompt" }
 mlkit-genai-schema-compiler = { module = "com.google.mlkit:genai-schema-compiler", version.ref = "genaiSchemaCompiler" }
 
